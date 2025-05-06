@@ -23,6 +23,42 @@ const swaggerOptions = {
       },
     ],
     components: {
+      schemas: {
+        LatestPDFResponse: {
+          type: 'object',
+          properties: {
+            fileName: {
+              type: 'string',
+              description: 'Name of the PDF file'
+            },
+            modifiedTime: {
+              type: 'string',
+              format: 'date-time',
+              description: 'Last modification time of the file'
+            },
+            link: {
+              type: 'string',
+              format: 'uri',
+              description: 'Web view link to the file'
+            }
+          },
+          required: ['fileName', 'modifiedTime', 'link']
+        },
+        ErrorResponse: {
+          type: 'object',
+          properties: {
+            error: {
+              type: 'string',
+              description: 'Error message'
+            },
+            details: {
+              type: 'string',
+              description: 'Detailed error information'
+            }
+          },
+          required: ['error']
+        }
+      },
       securitySchemes: {
         OAuth2: {
           type: 'oauth2',
@@ -77,25 +113,25 @@ const verifyAuth = (req, res, next) => {
  *         content:
  *           application/json:
  *             schema:
- *               type: object
- *               properties:
- *                 fileName:
- *                   type: string
- *                   description: Name of the PDF file
- *                 modifiedTime:
- *                   type: string
- *                   format: date-time
- *                   description: Last modification time of the file
- *                 link:
- *                   type: string
- *                   format: uri
- *                   description: Web view link to the file
+ *               $ref: '#/components/schemas/LatestPDFResponse'
  *       401:
  *         description: Unauthorized - Invalid or missing authorization token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       404:
  *         description: No PDF files found
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  *       500:
  *         description: Server error while fetching the file
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
  */
 const getLatestPDF = async (req, res) => {
   try {
