@@ -9,16 +9,25 @@ const port = process.env.PORT || 3000;
 
 // Debug: Log environment variables
 console.log('Environment variables:', {
-  CLIENT_ID: process.env.CLIENT_ID ? 'Set' : 'Not set',
+  CLIENT_ID: process.env.CLIENT_ID,
   CLIENT_SECRET: process.env.CLIENT_SECRET ? 'Set' : 'Not set',
-  BASE_URL: process.env.BASE_URL || 'https://gdrive-gpt-backend.vercel.app'
+  BASE_URL: process.env.BASE_URL || 'https://gdrive-gpt-backend.vercel.app',
+  REDIRECT_URI: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback'
 });
+
+// Verify required environment variables
+if (!process.env.CLIENT_ID || !process.env.CLIENT_SECRET) {
+  console.error('Missing required environment variables:');
+  if (!process.env.CLIENT_ID) console.error('- CLIENT_ID is not set');
+  if (!process.env.CLIENT_SECRET) console.error('- CLIENT_SECRET is not set');
+  process.exit(1);
+}
 
 // Google OAuth2 Configuration
 const oauth2Client = new google.auth.OAuth2(
   process.env.CLIENT_ID,
   process.env.CLIENT_SECRET,
-  `${process.env.BASE_URL}/auth/callback`
+  process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback'
 );
 
 // Initialize Google Drive API
@@ -123,14 +132,21 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.get('/auth/init', (req, res) => {
   // Debug: Log OAuth2 client configuration
   console.log('OAuth2 Client Config:', {
-    clientId: oauth2Client._clientId,
-    redirectUri: oauth2Client._redirectUri
+    clientId: process.env.CLIENT_ID,
+    clientSecret: process.env.CLIENT_SECRET ? 'Set' : 'Not set',
+    redirectUri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
+    baseUrl: process.env.BASE_URL
   });
+
+  if (!process.env.CLIENT_ID) {
+    console.error('CLIENT_ID is not set in environment variables');
+    return res.status(500).json({ error: 'OAuth configuration error: CLIENT_ID is not set' });
+  }
 
   // Construct the authorization URL manually
   const params = new URLSearchParams({
     client_id: process.env.CLIENT_ID,
-    redirect_uri: `${process.env.BASE_URL}/auth/callback`,
+    redirect_uri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
     response_type: 'code',
     scope: 'https://www.googleapis.com/auth/drive.readonly',
     access_type: 'offline',
@@ -141,6 +157,7 @@ app.get('/auth/init', (req, res) => {
 
   // Debug: Log the generated auth URL
   console.log('Generated Auth URL:', authUrl);
+  console.log('URL Parameters:', Object.fromEntries(params.entries()));
 
   // Redirect to Google's consent screen
   res.redirect(authUrl);
