@@ -9,9 +9,9 @@ const port = process.env.PORT || 3000;
 
 // Google OAuth2 Configuration
 const oauth2Client = new google.auth.OAuth2(
-  process.env.GOOGLE_CLIENT_ID,
-  process.env.GOOGLE_CLIENT_SECRET,
-  process.env.GOOGLE_REDIRECT_URI || 'https://gdrive-gpt-backend.vercel.app/auth/callback'
+  process.env.CLIENT_ID,
+  process.env.CLIENT_SECRET,
+  `${process.env.BASE_URL}/auth/callback`
 );
 
 // Initialize Google Drive API
@@ -28,7 +28,7 @@ const swaggerOptions = {
     },
     servers: [
       {
-        url: 'https://gdrive-gpt-backend.vercel.app',
+        url: process.env.BASE_URL || 'https://gdrive-gpt-backend.vercel.app',
         description: 'Production server',
       },
     ],
@@ -114,11 +114,14 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
  *         description: Redirect to Google's consent screen
  */
 app.get('/auth/init', (req, res) => {
-  // Generate the authorization URL
+  // Generate the authorization URL with all required parameters
   const authUrl = oauth2Client.generateAuthUrl({
+    client_id: process.env.CLIENT_ID,
     access_type: 'offline',
+    prompt: 'consent',
+    response_type: 'code',
+    redirect_uri: `${process.env.BASE_URL}/auth/callback`,
     scope: ['https://www.googleapis.com/auth/drive.readonly'],
-    prompt: 'consent'
   });
 
   // Redirect to Google's consent screen
