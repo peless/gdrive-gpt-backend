@@ -155,9 +155,11 @@ app.get('/auth/init', (req, res) => {
 
   const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
-  // Debug: Log the generated auth URL
+  // Debug: Log the generated auth URL and parameters
   console.log('Generated Auth URL:', authUrl);
   console.log('URL Parameters:', Object.fromEntries(params.entries()));
+  console.log('Raw client_id value:', process.env.CLIENT_ID);
+  console.log('Raw redirect_uri value:', process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback');
 
   // Redirect to Google's consent screen
   res.redirect(authUrl);
