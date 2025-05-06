@@ -21,8 +21,8 @@ const verifyAuth = (req, res, next) => {
   next();
 };
 
-// Endpoint to get the latest PDF file
-app.get('/files/latest', verifyAuth, async (req, res) => {
+// Function to handle fetching the latest PDF file
+const getLatestPDF = async (req, res) => {
   try {
     // Set up the OAuth2 client with the provided token
     const oauth2Client = new google.auth.OAuth2();
@@ -58,7 +58,11 @@ app.get('/files/latest', verifyAuth, async (req, res) => {
       details: error.message 
     });
   }
-});
+};
+
+// Register both endpoints with the same handler
+app.get('/files/latest', verifyAuth, getLatestPDF);
+app.get('/api/getLatestDriveFile', verifyAuth, getLatestPDF);
 
 // Start the server
 app.listen(port, () => {
