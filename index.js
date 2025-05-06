@@ -127,13 +127,17 @@ app.get('/auth/init', (req, res) => {
     redirectUri: oauth2Client._redirectUri
   });
 
-  // Generate the authorization URL with all required parameters
-  const authUrl = oauth2Client.generateAuthUrl({
-    access_type: 'offline',
-    prompt: 'consent',
+  // Construct the authorization URL manually
+  const params = new URLSearchParams({
+    client_id: process.env.CLIENT_ID,
+    redirect_uri: `${process.env.BASE_URL}/auth/callback`,
     response_type: 'code',
-    scope: ['https://www.googleapis.com/auth/drive.readonly'],
+    scope: 'https://www.googleapis.com/auth/drive.readonly',
+    access_type: 'offline',
+    prompt: 'consent'
   });
+
+  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
 
   // Debug: Log the generated auth URL
   console.log('Generated Auth URL:', authUrl);
