@@ -7,6 +7,13 @@ const swaggerUi = require('swagger-ui-express');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Debug: Log environment variables
+console.log('Environment variables:', {
+  CLIENT_ID: process.env.CLIENT_ID ? 'Set' : 'Not set',
+  CLIENT_SECRET: process.env.CLIENT_SECRET ? 'Set' : 'Not set',
+  BASE_URL: process.env.BASE_URL || 'https://gdrive-gpt-backend.vercel.app'
+});
+
 // Google OAuth2 Configuration
 const oauth2Client = new google.auth.OAuth2(
   process.env.CLIENT_ID,
@@ -114,6 +121,12 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
  *         description: Redirect to Google's consent screen
  */
 app.get('/auth/init', (req, res) => {
+  // Debug: Log OAuth2 client configuration
+  console.log('OAuth2 Client Config:', {
+    clientId: oauth2Client._clientId,
+    redirectUri: oauth2Client._redirectUri
+  });
+
   // Generate the authorization URL with all required parameters
   const authUrl = oauth2Client.generateAuthUrl({
     access_type: 'offline',
@@ -121,6 +134,9 @@ app.get('/auth/init', (req, res) => {
     response_type: 'code',
     scope: ['https://www.googleapis.com/auth/drive.readonly'],
   });
+
+  // Debug: Log the generated auth URL
+  console.log('Generated Auth URL:', authUrl);
 
   // Redirect to Google's consent screen
   res.redirect(authUrl);
