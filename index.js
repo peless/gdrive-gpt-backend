@@ -23,6 +23,16 @@ if (!process.env.CLIENT_ID || !process.env.CLIENT_SECRET) {
   process.exit(1);
 }
 
+// Error handling middleware
+app.use((err, req, res, next) => {
+  console.error('Error:', err);
+  res.status(500).json({
+    error: 'Internal Server Error',
+    details: err.message,
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+  });
+});
+
 // Google OAuth2 Configuration
 const oauth2Client = new google.auth.OAuth2(
   process.env.CLIENT_ID,
@@ -130,39 +140,47 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
  *         description: Redirect to Google's consent screen
  */
 app.get('/auth/init', (req, res) => {
-  // Debug: Log OAuth2 client configuration
-  console.log('OAuth2 Client Config:', {
-    clientId: process.env.CLIENT_ID,
-    clientSecret: process.env.CLIENT_SECRET ? 'Set' : 'Not set',
-    redirectUri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
-    baseUrl: process.env.BASE_URL
-  });
+  try {
+    // Debug: Log OAuth2 client configuration
+    console.log('OAuth2 Client Config:', {
+      clientId: process.env.CLIENT_ID,
+      clientSecret: process.env.CLIENT_SECRET ? 'Set' : 'Not set',
+      redirectUri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
+      baseUrl: process.env.BASE_URL
+    });
 
-  if (!process.env.CLIENT_ID) {
-    console.error('CLIENT_ID is not set in environment variables');
-    return res.status(500).json({ error: 'OAuth configuration error: CLIENT_ID is not set' });
+    if (!process.env.CLIENT_ID) {
+      console.error('CLIENT_ID is not set in environment variables');
+      return res.status(500).json({ error: 'OAuth configuration error: CLIENT_ID is not set' });
+    }
+
+    // Construct the authorization URL manually
+    const params = new URLSearchParams({
+      client_id: process.env.CLIENT_ID,
+      redirect_uri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
+      response_type: 'code',
+      scope: 'https://www.googleapis.com/auth/drive.readonly',
+      access_type: 'offline',
+      prompt: 'consent'
+    });
+
+    const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
+
+    // Debug: Log the generated auth URL and parameters
+    console.log('Generated Auth URL:', authUrl);
+    console.log('URL Parameters:', Object.fromEntries(params.entries()));
+    console.log('Raw client_id value:', process.env.CLIENT_ID);
+    console.log('Raw redirect_uri value:', process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback');
+
+    // Redirect to Google's consent screen
+    res.redirect(authUrl);
+  } catch (error) {
+    console.error('Error in /auth/init:', error);
+    res.status(500).json({
+      error: 'Failed to initialize OAuth flow',
+      details: error.message
+    });
   }
-
-  // Construct the authorization URL manually
-  const params = new URLSearchParams({
-    client_id: process.env.CLIENT_ID,
-    redirect_uri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
-    response_type: 'code',
-    scope: 'https://www.googleapis.com/auth/drive.readonly',
-    access_type: 'offline',
-    prompt: 'consent'
-  });
-
-  const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
-
-  // Debug: Log the generated auth URL and parameters
-  console.log('Generated Auth URL:', authUrl);
-  console.log('URL Parameters:', Object.fromEntries(params.entries()));
-  console.log('Raw client_id value:', process.env.CLIENT_ID);
-  console.log('Raw redirect_uri value:', process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback');
-
-  // Redirect to Google's consent screen
-  res.redirect(authUrl);
 });
 
 /**
