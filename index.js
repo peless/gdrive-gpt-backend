@@ -116,11 +116,9 @@ const swaggerSpec = swaggerJsdoc(swaggerOptions);
 app.get('/auth/init', (req, res) => {
   // Generate the authorization URL with all required parameters
   const authUrl = oauth2Client.generateAuthUrl({
-    client_id: process.env.CLIENT_ID,
     access_type: 'offline',
     prompt: 'consent',
     response_type: 'code',
-    redirect_uri: `${process.env.BASE_URL}/auth/callback`,
     scope: ['https://www.googleapis.com/auth/drive.readonly'],
   });
 
