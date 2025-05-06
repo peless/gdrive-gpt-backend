@@ -154,14 +154,16 @@ app.get('/auth/init', (req, res) => {
       return res.status(500).json({ error: 'OAuth configuration error: CLIENT_ID is not set' });
     }
 
-    // Construct the authorization URL manually
+    // Construct the authorization URL manually with explicit flow type
     const params = new URLSearchParams({
       client_id: process.env.CLIENT_ID,
       redirect_uri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
       response_type: 'code',
       scope: 'https://www.googleapis.com/auth/drive.readonly',
       access_type: 'offline',
-      prompt: 'consent'
+      prompt: 'consent',
+      flowName: 'GeneralOAuthFlow',
+      include_granted_scopes: 'true'
     });
 
     const authUrl = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`;
@@ -178,7 +180,8 @@ app.get('/auth/init', (req, res) => {
     console.error('Error in /auth/init:', error);
     res.status(500).json({
       error: 'Failed to initialize OAuth flow',
-      details: error.message
+      details: error.message,
+      stack: process.env.NODE_ENV === 'development' ? error.stack : undefined
     });
   }
 });
