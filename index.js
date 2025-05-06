@@ -7,6 +7,16 @@ const swaggerUi = require('swagger-ui-express');
 const app = express();
 const port = process.env.PORT || 3000;
 
+// Google OAuth2 Configuration
+const oauth2Client = new google.auth.OAuth2(
+  process.env.GOOGLE_CLIENT_ID,
+  process.env.GOOGLE_CLIENT_SECRET,
+  process.env.GOOGLE_REDIRECT_URI || 'https://gdrive-gpt-backend.vercel.app/auth/callback'
+);
+
+// Initialize Google Drive API
+const drive = google.drive('v3');
+
 // Swagger definition
 const swaggerOptions = {
   definition: {
@@ -57,6 +67,16 @@ const swaggerOptions = {
             }
           },
           required: ['error']
+        },
+        AuthResponse: {
+          type: 'object',
+          properties: {
+            access_token: {
+              type: 'string',
+              description: 'OAuth2 access token'
+            }
+          },
+          required: ['access_token']
         }
       },
       securitySchemes: {
@@ -78,24 +98,97 @@ const swaggerOptions = {
       OAuth2: ['https://www.googleapis.com/auth/drive.readonly']
     }]
   },
-  apis: ['./index.js'], // Path to the API docs
+  apis: ['./index.js'],
 };
 
 const swaggerSpec = swaggerJsdoc(swaggerOptions);
 
-// Initialize Google Drive API
-const drive = google.drive('v3');
+/**
+ * @swagger
+ * /auth/init:
+ *   get:
+ *     summary: Initialize Google OAuth2 flow
+ *     description: Redirects to Google's consent screen to authorize Drive access
+ *     responses:
+ *       302:
+ *         description: Redirect to Google's consent screen
+ */
+app.get('/auth/init', (req, res) => {
+  // Generate the authorization URL
+  const authUrl = oauth2Client.generateAuthUrl({
+    access_type: 'offline',
+    scope: ['https://www.googleapis.com/auth/drive.readonly'],
+    prompt: 'consent'
+  });
 
-// Middleware to verify Authorization header
-const verifyAuth = (req, res, next) => {
-  const authHeader = req.headers.authorization;
+  // Redirect to Google's consent screen
+  res.redirect(authUrl);
+});
+
+/**
+ * @swagger
+ * /auth/callback:
+ *   get:
+ *     summary: OAuth2 callback endpoint
+ *     description: Handles the OAuth2 callback from Google and exchanges code for token
+ *     parameters:
+ *       - in: query
+ *         name: code
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Successfully obtained access token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/AuthResponse'
+ *       400:
+ *         description: Missing authorization code
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ *       500:
+ *         description: Error exchanging code for token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ErrorResponse'
+ */
+app.get('/auth/callback', async (req, res) => {
+  const { code } = req.query;
+
+  if (!code) {
+    return res.status(400).json({ error: 'Authorization code is required' });
+  }
+
+  try {
+    // Exchange the authorization code for tokens
+    const { tokens } = await oauth2Client.getToken(code);
+    
+    // Return the access token
+    res.json({ access_token: tokens.access_token });
+  } catch (error) {
+    console.error('Error exchanging code for token:', error);
+    res.status(500).json({
+      error: 'Failed to exchange authorization code',
+      details: error.message
+    });
+  }
+});
+
+// Middleware to verify token from query param or cookie
+const verifyToken = (req, res, next) => {
+  const token = req.query.token || req.cookies?.token;
   
-  if (!authHeader || !authHeader.startsWith('Bearer ')) {
-    return res.status(401).json({ error: 'Authorization header missing or invalid' });
+  if (!token) {
+    return res.status(401).json({ error: 'Access token is required' });
   }
   
-  // Extract the token from the Authorization header
-  req.accessToken = authHeader.split(' ')[1];
+  // Set the token for the OAuth2 client
+  oauth2Client.setCredentials({ access_token: token });
   next();
 };
 
@@ -105,8 +198,12 @@ const verifyAuth = (req, res, next) => {
  *   get:
  *     summary: Get the most recently modified PDF file from Google Drive
  *     operationId: getLatestDriveFile
- *     security:
- *       - OAuth2: ['https://www.googleapis.com/auth/drive.readonly']
+ *     parameters:
+ *       - in: query
+ *         name: token
+ *         schema:
+ *           type: string
+ *         description: OAuth2 access token
  *     responses:
  *       200:
  *         description: Successfully retrieved the latest PDF file
@@ -115,7 +212,7 @@ const verifyAuth = (req, res, next) => {
  *             schema:
  *               $ref: '#/components/schemas/LatestPDFResponse'
  *       401:
- *         description: Unauthorized - Invalid or missing authorization token
+ *         description: Unauthorized - Invalid or missing token
  *         content:
  *           application/json:
  *             schema:
@@ -135,10 +232,6 @@ const verifyAuth = (req, res, next) => {
  */
 const getLatestPDF = async (req, res) => {
   try {
-    // Set up the OAuth2 client with the provided token
-    const oauth2Client = new google.auth.OAuth2();
-    oauth2Client.setCredentials({ access_token: req.accessToken });
-
     // Query Google Drive for PDF files, ordered by modified time
     const response = await drive.files.list({
       auth: oauth2Client,
@@ -171,9 +264,8 @@ const getLatestPDF = async (req, res) => {
   }
 };
 
-// Register both endpoints with the same handler
-app.get('/files/latest', verifyAuth, getLatestPDF);
-app.get('/api/getLatestDriveFile', verifyAuth, getLatestPDF);
+// Register endpoints
+app.get('/api/getLatestDriveFile', verifyToken, getLatestPDF);
 
 // Swagger UI setup
 app.use('/docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
