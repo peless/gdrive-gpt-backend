@@ -7,9 +7,10 @@ const swaggerUi = require('swagger-ui-express');
 const app = express();
 const port = process.env.PORT || 3000;
 
-// Debug: Log environment variables
+// Debug: Log all environment variables (excluding sensitive data)
 console.log('Environment variables:', {
-  CLIENT_ID: process.env.CLIENT_ID,
+  NODE_ENV: process.env.NODE_ENV,
+  CLIENT_ID: process.env.CLIENT_ID ? `${process.env.CLIENT_ID.substring(0, 10)}...` : 'Not set',
   CLIENT_SECRET: process.env.CLIENT_SECRET ? 'Set' : 'Not set',
   BASE_URL: process.env.BASE_URL || 'https://gdrive-gpt-backend.vercel.app',
   REDIRECT_URI: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback'
@@ -143,7 +144,7 @@ app.get('/auth/init', (req, res) => {
   try {
     // Debug: Log OAuth2 client configuration
     console.log('OAuth2 Client Config:', {
-      clientId: process.env.CLIENT_ID,
+      clientId: process.env.CLIENT_ID ? `${process.env.CLIENT_ID.substring(0, 10)}...` : 'Not set',
       clientSecret: process.env.CLIENT_SECRET ? 'Set' : 'Not set',
       redirectUri: process.env.REDIRECT_URI || 'https://chat.openai.com/auth/callback',
       baseUrl: process.env.BASE_URL
